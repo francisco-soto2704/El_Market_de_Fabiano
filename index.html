@@ -486,12 +486,18 @@ var cloudOn=false;
 function initCloud(){var B='https://www.gstatic.com/firebasejs/10.12.2/firebase-';
  loadJS(B+'app-compat.js').then(function(){return loadJS(B+'auth-compat.js')}).then(function(){return loadJS(B+'firestore-compat.js')}).then(function(){
   firebase.initializeApp(window.FB_CONFIG);
+  firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(function(){});
   firebase.auth().onAuthStateChanged(function(u){if(u)cloudStart();else cloudLogin()})
  }).catch(function(){toast('No hay conexión con la nube. Abre la app con internet.',{bad:true})})}
-function cloudLogin(){var st='width:100%;min-height:46px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);margin-bottom:8px';
- openModal('<h2>☁️ Iniciar sesión</h2><p class="muted">Usa el correo y contraseña de tu tienda (se pide una sola vez por dispositivo).</p><input id="cle" type="email" placeholder="Correo" autocomplete="username" style="'+st+'"><input id="clp" type="password" placeholder="Contraseña" autocomplete="current-password" style="'+st+'"><div class="btns"><button class="btn" data-act="cloudlogin">Entrar</button></div>')}
+function cloudLogin(){S.lock=true;var st='width:100%;min-height:46px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--bg);margin-bottom:8px';
+ openModal('<form id="loginform"><h2>☁️ Iniciar sesión</h2><p class="muted">Correo y contraseña creados en Firebase (no son los de Gmail). Se piden una sola vez por dispositivo.</p><input id="cle" name="email" type="email" placeholder="Correo" autocomplete="username" autocapitalize="off" style="'+st+'"><input id="clp" name="password" type="password" placeholder="Contraseña" autocomplete="current-password" style="'+st+'"><div id="clerr" style="color:var(--bad);font-weight:700;margin-bottom:8px;min-height:20px"></div><div class="btns"><button class="btn" type="submit" id="clbtn">Entrar</button></div></form>')}
+function doLogin(){var e=$('#cle').value.trim().toLowerCase(),p=$('#clp').value,m=$('#clerr'),bt=$('#clbtn');m.textContent='';bt.disabled=true;bt.textContent='Entrando…';
+ firebase.auth().signInWithEmailAndPassword(e,p).catch(function(x){bt.disabled=false;bt.textContent='Entrar';var c=(x&&x.code)||'';
+  var t={'auth/invalid-credential':'Correo o contraseña incorrectos','auth/wrong-password':'Contraseña incorrecta','auth/user-not-found':'Ese correo no existe en Firebase (créalo en Authentication → Usuarios)','auth/invalid-email':'El correo no es válido','auth/operation-not-allowed':'Falta activar «Correo electrónico/contraseña» en Authentication → Método de acceso','auth/network-request-failed':'Sin internet','auth/too-many-requests':'Demasiados intentos; espera unos minutos','auth/invalid-api-key':'La apiKey de config.js no es válida','auth/api-key-not-valid.-please-pass-a-valid-api-key.':'La apiKey de config.js no es válida','auth/unauthorized-domain':'Dominio no autorizado en Firebase (Authentication → Configuración → Dominios autorizados)'}[c];
+  m.textContent=t||('Error: '+(c||(x&&x.message)||'desconocido'))})}
+document.addEventListener('submit',function(e){if(e.target&&e.target.id==='loginform'){e.preventDefault();doLogin()}});
 function cloudStart(){
- if(cloudOn)return;cloudOn=true;closeModal();
+ if(cloudOn)return;cloudOn=true;S.lock=false;closeModal();
  var fs=firebase.firestore();
  fs.enablePersistence({synchronizeTabs:true}).catch(function(){}).then(function(){return fs.doc('config/catalogo').get().catch(function(){return {exists:true}})}).then(function(s){
   db={doc:function(p){var r=fs.doc(p);return {get:function(){return r.get()},set:function(d){r.set(d).catch(err);return Promise.resolve()},onSnapshot:function(a,b){return r.onSnapshot(a,b)},delete:function(){return r.delete().catch(function(){})}}},
@@ -920,12 +926,12 @@ document.addEventListener('input',function(e){var t=e.target;if(!t.classList||!t
  updRtot()});
 document.addEventListener('keydown',function(e){
  if(e.key==='F2'){e.preventDefault();if(S.view==='vender'&&!modalOpen())commitSale();return}
- if(e.key==='Escape'&&modalOpen()){closeModal();return}
+ if(e.key==='Escape'&&modalOpen()){if(!S.lock)closeModal();return}
  if(modalOpen()||e.ctrlKey||e.metaKey||e.altKey)return;
  var t=e.target;if(t&&t.matches&&t.matches('input,textarea,select,button'))return;
  if(e.key.length===1){var s=S.view==='vender'?$('#scan'):S.view==='stock'?$('#q'):null;if(s)s.focus()}
 });
-document.addEventListener('click',function(e){var t=e.target;if(t.id==='modal'&&!S.askRes)closeModal()});
+document.addEventListener('click',function(e){var t=e.target;if(t.id==='modal'&&!S.askRes&&!S.lock)closeModal()});
 document.addEventListener('focusin',function(e){if(e.target.matches&&e.target.matches('.qin,.rin,#np'))e.target.select()});
 
 /* ---------- arranque ---------- */
